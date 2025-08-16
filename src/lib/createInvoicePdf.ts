@@ -1,6 +1,6 @@
 // lib/createInvoicePdf.ts
-import { PDFDocument, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
+import { PDFDocument, rgb } from "pdf-lib";
 
 export type InvoiceParams = {
   customerName: string;
@@ -20,7 +20,9 @@ export async function createInvoicePdf(p: InvoiceParams): Promise<Uint8Array> {
   pdfDoc.registerFontkit(fontkit);
 
   // ✅ フォントをURL経由で取得（Noto Sans JP）
-  const fontRes = await fetch("https://cdn.jsdelivr.net/gh/googlefonts/noto-cjk@main/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf");
+  const fontRes = await fetch(
+    "https://cdn.jsdelivr.net/gh/googlefonts/noto-cjk@main/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf"
+  );
   const fontBuffer = await fontRes.arrayBuffer();
   const jpFont = await pdfDoc.embedFont(fontBuffer);
 
@@ -38,12 +40,28 @@ export async function createInvoicePdf(p: InvoiceParams): Promise<Uint8Array> {
     : await pdfDoc.embedJpg(logoBuffer);
 
   const logoDim = logoImg.scale(60 / logoImg.height);
+  const logoX = width - logoDim.width - 40;
+  const logoY = height - HEADER_H + (HEADER_H - logoDim.height) / 2;
+
   page.drawImage(logoImg, {
     x: width - logoDim.width - 40,
     y: height - HEADER_H + (HEADER_H - logoDim.height) / 2,
     ...logoDim,
   });
 
+  const brandText = "Xenovant";
+  const brandSize = 12;
+  const brandWidth = jpFont.widthOfTextAtSize(brandText, brandSize);
+
+  page.drawText(brandText, {
+    x: logoX + (logoDim.width - brandWidth) / 2, // ロゴ幅の中央
+    y: logoY - 14, // ロゴの少し下に配置（数値はお好みで調整）
+    size: brandSize,
+    font: jpFont,
+    color: rgb(0.2, 0.2, 0.2),
+  });
+
+  // （この下が既存）
   page.drawText("請  求  書", {
     x: LEFT,
     y: height - 50,
@@ -126,7 +144,8 @@ export async function createInvoicePdf(p: InvoiceParams): Promise<Uint8Array> {
 
   const items: [string, number][] = [];
   if (p.setupSelected) items.push(["初期セットアップ", p.setupPrice ?? 30000]);
-  if (p.shootingSelected) items.push(["撮影編集代行", p.shootingPrice ?? 50000]);
+  if (p.shootingSelected)
+    items.push(["撮影編集代行", p.shootingPrice ?? 50000]);
 
   const amount = items.reduce((sum, [, price]) => sum + price, 0);
   const tax = Math.round(amount * 0.1);

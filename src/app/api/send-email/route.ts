@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     });
 
     await transporter.sendMail({
-      from: `Pageit運営 <${GOOGLE_SENDER_EMAIL}>`,
+      from: `Xenovant運営 <${GOOGLE_SENDER_EMAIL}>`,
       to,
       subject,
       text:

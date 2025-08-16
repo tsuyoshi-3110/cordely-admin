@@ -121,12 +121,12 @@ ${setupSelected ? `初期セットアップ：${setupPrice.toLocaleString()}円\
         >
           初期セットアップ（30,000円）
         </Button>
-        {/* <Button
+        <Button
           variant={shootingSelected ? "default" : "outline"}
           onClick={() => setShootingSelected((prev) => !prev)}
         >
           撮影編集代行（50,000円）
-        </Button> */}
+        </Button>
       </div>
 
       <div className="text-sm text-gray-700 space-y-1">

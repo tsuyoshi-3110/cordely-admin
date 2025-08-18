@@ -40,7 +40,7 @@ export default function SendTransferPage() {
     const body = `
 ${name}様
 
-この度はPageitにお申し込みいただき、誠にありがとうございます。
+この度はCordelyにお申し込みいただき、誠にありがとうございます。
 
 以下の内容で初回セットアップ費用のご案内を申し上げます。
 
@@ -59,7 +59,7 @@ ${setupSelected ? `初期セットアップ：${setupPrice.toLocaleString()}円\
 ---
 ご不明な点などございましたら、お気軽にご返信ください。
 【Xenovant 運営】
-メール：pageitstore@gmail.com
+メール：cordelystore@gmail.com
 `;
 
     try {
@@ -69,7 +69,7 @@ ${setupSelected ? `初期セットアップ：${setupPrice.toLocaleString()}円\
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: email,
-          subject: "【Pageit】振込のご案内",
+          subject: "【Cordely】振込のご案内",
           body,
           name,
           setupSelected,

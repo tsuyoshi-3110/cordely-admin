@@ -1,19 +1,22 @@
-// 修正された RegisterPage：Stripe 連携用
+// app/register/page.tsx（例）
+// 修正された RegisterPage：Stripe 連携 + customerUrl を siteSettings に保存
 "use client";
 
-import { useEffect, useState } from "react";
-import { auth, db } from "../../lib/firebase";
-import { createSiteSettings } from "@/lib/createSiteSettings";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { handleSearchAddress } from "@/lib/addressUtil";
+import { createSiteSettings } from "@/lib/createSiteSettings";
+import { auth, db } from "@/lib/firebase";
 import { FirebaseError } from "firebase/app";
-import { getDoc, doc } from "firebase/firestore";
-import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { parsePhoneNumberFromString, AsYouType } from "libphonenumber-js";
+import { doc, getDoc, setDoc } from "firebase/firestore"; // ← setDoc 追加
+import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import validator from "validator";
-import { handleSearchAddress } from "@/lib/addressUtil"
+
+const CUSTOMER_ORIGIN = "https://cordely-customers.vercel.app";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -40,6 +43,7 @@ export default function RegisterPage() {
   const handleRegister = async () => {
     setLoading(true);
     try {
+      // siteKey の重複チェック
       const ref = doc(db, "siteSettings", siteKey);
       const snap = await getDoc(ref);
       if (snap.exists()) {
@@ -52,7 +56,7 @@ export default function RegisterPage() {
         }
       }
 
-      // ✅ サーバー側でFirebase Auth ユーザー作成（自動ログイン防止）
+      // Firebase Auth ユーザー作成（サーバー側。自動ログイン防止）
       const userRes = await fetch("/api/create-firebase-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,21 +70,19 @@ export default function RegisterPage() {
           alert("このメールアドレスはすでに登録されています。");
           return;
         }
-
         if (error === "invalid-password") {
           alert("パスワードは6文字以上で入力してください。");
           return;
         }
-
         throw new Error("Firebaseアカウントの作成に失敗しました");
       }
 
       const { uid } = await userRes.json();
 
+      // Stripe 顧客/サブスク（有料プランのみ）
       let customerId: string | null = null;
       let subscriptionId: string | null = null;
 
-      // Stripe 顧客作成（無料プランでない場合）
       if (!isFreePlan) {
         const stripeRes = await fetch("/api/stripe/create-stripe-customer", {
           method: "POST",
@@ -105,7 +107,12 @@ export default function RegisterPage() {
         subscriptionId = json.subscriptionId;
       }
 
-      // Firestore に siteSettings を保存
+      // 顧客向けURLを siteKey から生成
+      const customerUrl = `${CUSTOMER_ORIGIN}/?siteKey=${encodeURIComponent(
+        siteKey
+      )}`;
+
+      // Firestore へ siteSettings 保存（createSiteSettings 経由）
       await createSiteSettings(siteKey, {
         ownerId: uid,
         siteName,
@@ -117,15 +124,15 @@ export default function RegisterPage() {
         isFreePlan,
         ...(customerId && { stripeCustomerId: customerId }),
         ...(subscriptionId && { stripeSubscriptionId: subscriptionId }),
-        setupMode: false
+        setupMode: false,
       });
 
-      // メール通知（パスワード付き）
-      // await fetch("/api/send-registration-mail", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email, password }),
-      // });
+      // 念のため merge で customerUrl を確実に残す
+      await setDoc(
+        doc(db, "siteSettings", siteKey),
+        { customerUrl },
+        { merge: true }
+      );
 
       alert("登録が完了しました！");
       setEmail("");
@@ -186,6 +193,7 @@ export default function RegisterPage() {
                 : "⚠️ メールアドレスの形式が不正です"}
             </p>
           )}
+
           <div className="flex gap-2">
             <Input
               type="text"
@@ -201,6 +209,7 @@ export default function RegisterPage() {
               自動生成
             </Button>
           </div>
+
           <Input
             type="text"
             placeholder="siteKey（英数字）"
@@ -220,18 +229,21 @@ export default function RegisterPage() {
                 : "⚠️ siteKeyは半角英数字のみで入力してください"}
             </p>
           )}
+
           <Input
             type="text"
             placeholder="サイト名"
             value={siteName}
             onChange={(e) => setSiteName(e.target.value)}
           />
+
           <Input
             type="text"
             placeholder="名前（オーナー）"
             value={ownerName}
             onChange={(e) => setOwnerName(e.target.value)}
           />
+
           <Input
             type="text"
             placeholder="郵便番号（例: 123-4567）"
@@ -258,12 +270,14 @@ export default function RegisterPage() {
           {isSearchingAddress && (
             <p className="text-sm text-gray-500">住所を検索中...</p>
           )}
+
           <Input
             type="text"
             placeholder="住所"
             value={ownerAddress}
             onChange={(e) => setOwnerAddress(e.target.value)}
           />
+
           <div className="space-y-1">
             <Input
               type="tel"
@@ -271,13 +285,10 @@ export default function RegisterPage() {
               value={ownerPhone}
               onChange={(e) => {
                 const input = e.target.value;
-
-                // 入力整形（日本を想定）
                 const formatted = new AsYouType("JP").input(input);
                 setOwnerPhone(formatted);
               }}
             />
-            {/* バリデーション結果表示（任意） */}
             {ownerPhone && (
               <p className="text-sm text-gray-500">
                 {parsePhoneNumberFromString(ownerPhone, "JP")?.isValid()
@@ -286,6 +297,7 @@ export default function RegisterPage() {
               </p>
             )}
           </div>
+
           <Button
             onClick={handleRegister}
             disabled={loading}

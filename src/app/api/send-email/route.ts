@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const {
       to,
       name,
-      subject = "【Pageit】振込のご案内",
+      subject = "【cordely】振込のご案内",
       body,
       invoiceDate,
       dueDate,

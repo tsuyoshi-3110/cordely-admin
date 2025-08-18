@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
-import { onAuthStateChanged, type User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { useAtom } from "jotai";
 import { openFlagAtom } from "@/lib/atoms/openFlagAtom";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { useAtom } from "jotai";
 import { Menu, X } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 
 export default function NavBar() {
   const [user, setUser] = useState<User | null>(null);
@@ -19,7 +19,7 @@ export default function NavBar() {
   }, []);
 
   useEffect(() => {
-    const savedFlag = localStorage.getItem("pageit_open_flag");
+    const savedFlag = localStorage.getItem("cordely_open_flag");
     if (savedFlag !== null) setOpenFlag(JSON.parse(savedFlag));
   }, [setOpenFlag]);
 
@@ -37,7 +37,8 @@ export default function NavBar() {
   // Escapeで閉じる
   useEffect(() => {
     if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    const onKey = (e: KeyboardEvent) =>
+      e.key === "Escape" && setMenuOpen(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [menuOpen]);
@@ -46,8 +47,11 @@ export default function NavBar() {
     <>
       {/* ナビバー */}
       <nav className="fixed top-0 left-0 z-50 flex h-16 w-full items-center justify-between bg-white px-4 py-4 shadow-md md:px-6">
-        <Link href="/" className="text-lg font-bold text-gray-700 hover:text-blue-500">
-          Pageit管理サイト
+        <Link
+          href="/"
+          className="text-lg font-bold text-gray-700 hover:text-blue-500"
+        >
+          Cordely管理サイト
         </Link>
         <button
           className="text-gray-700"
@@ -88,21 +92,41 @@ export default function NavBar() {
         <div className="flex flex-col space-y-3 px-4 py-2">
           {openFlag && (
             <>
-              <Link href="/login" onClick={toggleMenu} className="text-gray-700 hover:text-blue-500">
+              <Link
+                href="/login"
+                onClick={toggleMenu}
+                className="text-gray-700 hover:text-blue-500"
+              >
                 ログイン
               </Link>
               {user && (
                 <>
-                  <Link href="/register" onClick={toggleMenu} className="text-gray-700 hover:text-blue-500">
+                  <Link
+                    href="/register"
+                    onClick={toggleMenu}
+                    className="text-gray-700 hover:text-blue-500"
+                  >
                     アカウント作成
                   </Link>
-                  <Link href="/sites" onClick={toggleMenu} className="text-gray-700 hover:text-blue-500">
+                  <Link
+                    href="/sites"
+                    onClick={toggleMenu}
+                    className="text-gray-700 hover:text-blue-500"
+                  >
                     サイト一覧
                   </Link>
-                  <Link href="/send-transfer" onClick={toggleMenu} className="text-gray-700 hover:text-blue-500">
+                  <Link
+                    href="/send-transfer"
+                    onClick={toggleMenu}
+                    className="text-gray-700 hover:text-blue-500"
+                  >
                     請求メール
                   </Link>
-                  <Link href="/send-credentials" onClick={toggleMenu} className="text-gray-700 hover:text-blue-500">
+                  <Link
+                    href="/send-credentials"
+                    onClick={toggleMenu}
+                    className="text-gray-700 hover:text-blue-500"
+                  >
                     アカウントメール
                   </Link>
                 </>

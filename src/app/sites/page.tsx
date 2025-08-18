@@ -1,31 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  collection,
-  getDocs,
-  updateDoc,
-  doc,
-  deleteDoc,
-  Timestamp,
-  query,
-  where,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { useRouter } from "next/navigation";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
-import { useRouter as useNextRouter } from "next/navigation";
-import { useSetAtom } from "jotai";
 import {
   credentialsEmailAtom,
   invEmailAtom,
   invOwnerNameAtom,
 } from "@/lib/atoms/openFlagAtom";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  Timestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { useSetAtom } from "jotai";
+import { Loader2 } from "lucide-react";
+import { useRouter as useNextRouter, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 /* ───────── 型 ───────── */
 type Site = {
@@ -36,6 +34,7 @@ type Site = {
   ownerAddress?: string;
   ownerEmail?: string;
   homepageUrl?: string;
+  customerUrl?: string;
   cancelPending?: boolean;
   paymentStatus?: "active" | "pending_cancel" | "canceled" | "none";
   setupMode?: boolean;
@@ -68,6 +67,9 @@ export default function SiteListPage() {
   const [credentialsSentMap, setCredentialsSentMap] = useState<
     Map<string, boolean>
   >(new Map());
+
+  const [resumingId, setResumingId] = useState<string | null>(null);
+  const [cancelingId, setCancelingId] = useState<string | null>(null); // 既存の解約にもローディング付けたい場合
 
   const setOwnerName = useSetAtom(invOwnerNameAtom);
   const setInvEmail = useSetAtom(invEmailAtom);
@@ -120,6 +122,53 @@ export default function SiteListPage() {
 
     return () => unsub();
   }, [router]);
+
+  const handleCancel = async (siteId: string) => {
+    if (!confirm("本当に解約しますか？次回請求以降課金されません。")) return;
+    try {
+      setCancelingId(siteId);
+      const res = await fetch("/api/stripe/cancel-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siteKey: siteId }),
+      });
+      if (!res.ok) return alert("解約に失敗しました");
+      setSites((p) =>
+        p.map((s) =>
+          s.id === siteId
+            ? { ...s, cancelPending: true, paymentStatus: "pending_cancel" }
+            : s
+        )
+      );
+    } finally {
+      setCancelingId(null);
+    }
+  };
+
+  const handleResume = async (siteId: string) => {
+    if (!confirm("解約予約を解除して継続課金に戻します。よろしいですか？"))
+      return;
+    try {
+      setResumingId(siteId);
+      const res = await fetch("/api/stripe/resume-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siteKey: siteId }),
+      });
+      if (!res.ok) return alert("解除に失敗しました");
+
+      // 成功: 表示を即時反映
+      setSites((prev) =>
+        prev.map((s) =>
+          s.id === siteId
+            ? { ...s, cancelPending: false, paymentStatus: "active" }
+            : s
+        )
+      );
+    } finally {
+      setResumingId(null);
+    }
+  };
 
   const filteredSites = sites
     .filter((site) => {
@@ -289,22 +338,6 @@ export default function SiteListPage() {
     setHomepageInput("");
   };
 
-  const handleCancel = async (siteId: string) => {
-    if (!confirm("本当に解約しますか？次回請求以降課金されません。")) return;
-
-    const res = await fetch("/api/stripe/cancel-subscription", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ siteKey: siteId }),
-    });
-
-    if (!res.ok) return alert("解約に失敗しました");
-
-    setSites((p) =>
-      p.map((s) => (s.id === siteId ? { ...s, cancelPending: true } : s))
-    );
-  };
-
   const handleDelete = async (siteId: string) => {
     if (!confirm("本当にこのサイトを削除しますか？この操作は取り消せません。"))
       return;
@@ -413,9 +446,17 @@ export default function SiteListPage() {
                       無料
                     </span>
                   )}
+
                   <div className="flex justify-center w-full bg-gray-500">
                     <span className="font-bold text-lg">{site.siteName}</span>
                   </div>
+
+                  {/* ▼ ここを追加：サブスク中（active かつ 解約予約でない） */}
+                  {isPaid && !isPending && (
+                    <span className="flex justify-center items-center px-2 py-0.5 text-xs rounded w-24 h-8 bg-emerald-600 text-white">
+                      サブスク中
+                    </span>
+                  )}
 
                   {isPending && (
                     <span className="flex justify-center items-center px-2 py-0.5 text-xs rounded w-20 h-8 bg-yellow-500 text-white">
@@ -433,6 +474,7 @@ export default function SiteListPage() {
                 <div>電話番号: {site.ownerPhone}</div>
                 <div>住所: {site.ownerAddress}</div>
                 <div>メール: {site.ownerEmail}</div>
+                <div>顧客URL: {site.customerUrl}</div>
                 {renderTransferStatus(
                   site.ownerEmail,
                   transferLogMap,
@@ -518,14 +560,29 @@ export default function SiteListPage() {
                   ✏ オーナー情報を編集
                 </Button>
 
+                {/* サブスク解約（active かつ 解約予約ではない時） */}
                 {isPaid && !isPending && (
                   <Button
                     className="cursor-pointer"
                     size="sm"
                     variant="destructive"
                     onClick={() => handleCancel(site.id)}
+                    disabled={cancelingId === site.id}
                   >
-                    サブスク解約
+                    {cancelingId === site.id ? "処理中…" : "サブスク解約"}
+                  </Button>
+                )}
+
+                {/* ▼ 解約予約の解除（pending_cancel の時だけ表示） */}
+                {isPending && (
+                  <Button
+                    className="cursor-pointer"
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleResume(site.id)}
+                    disabled={resumingId === site.id}
+                  >
+                    {resumingId === site.id ? "解除中…" : "解約予約の解除"}
                   </Button>
                 )}
 

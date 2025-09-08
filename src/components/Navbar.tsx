@@ -122,13 +122,6 @@ export default function NavBar() {
                   >
                     請求メール
                   </Link>
-                  <Link
-                    href="/send-credentials"
-                    onClick={toggleMenu}
-                    className="text-gray-700 hover:text-blue-500"
-                  >
-                    アカウントメール
-                  </Link>
                 </>
               )}
             </>

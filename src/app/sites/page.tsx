@@ -64,9 +64,9 @@ export default function SiteListPage() {
     Map<string, { collected: boolean }>
   >(new Map());
 
-  const [credentialsSentMap, setCredentialsSentMap] = useState<
-    Map<string, boolean>
-  >(new Map());
+  // const [credentialsSentMap, setCredentialsSentMap] = useState<
+  //   Map<string, boolean>
+  // >(new Map());
 
   const [resumingId, setResumingId] = useState<string | null>(null);
   const [cancelingId, setCancelingId] = useState<string | null>(null); // 既存の解約にもローディング付けたい場合
@@ -219,7 +219,7 @@ export default function SiteListPage() {
         map.set(email, true);
       }
     });
-    setCredentialsSentMap(map);
+    // setCredentialsSentMap(map);
   };
 
   const renderCredentialsStatus = (
@@ -228,7 +228,7 @@ export default function SiteListPage() {
   ) => {
     if (!email) return null;
 
-    const isSent = credentialsSentMap.get(email) === true;
+    // const isSent = credentialsSentMap.get(email) === true;
     const isFreePlan = paymentStatus === "none";
     const isPaidPlan =
       paymentStatus === "active" || paymentStatus === "pending_cancel";
@@ -241,9 +241,9 @@ export default function SiteListPage() {
 
     return (
       <div className="flex items-center gap-2">
-        {isSent && (
+        {/* {isSent && (
           <div className="text-blue-600 font-bold">✉️ ログイン情報送信済み</div>
-        )}
+        )} */}
 
         <Button
           className="cursor-pointer"
@@ -543,7 +543,8 @@ export default function SiteListPage() {
                   {site.homepageUrl ? "✏️ URLを編集" : "＋ URLを追加"}
                 </Button>
 
-                {renderSetupModeToggle(site.id, site.setupMode)}
+                {!site.isFreePlan &&
+                  renderSetupModeToggle(site.id, site.setupMode)}
 
                 <Button
                   className="cursor-pointer"
